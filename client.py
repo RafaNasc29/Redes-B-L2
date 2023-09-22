@@ -1,29 +1,27 @@
-import os
 import socket
-import signal
-import time
-HOST = "127.0.0.1"  # The server's hostname or IP address
-PORT = 65432  # The port used by the server
+from tqdm import tqdm
+IP = socket.gethostname()
+PORT = 65435
+ADDR = (IP, PORT)
+SIZE = 1024
 
-try:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        result = s.connect((HOST, PORT))
-        pid = os.fork()
-        if pid > 0:
-            while True:
-                inp = input()
-                s.sendall(f'{inp}'.encode())
+def main():
+    conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    conn.connect(ADDR)
+    data = conn.recv(SIZE).decode('utf-8')
+    item = data.split('_')
+    FILENAME = item[0]
+    FILESIZE = int(item[1])
 
-        else:
-            while True:
-                time.sleep(1)
-                data = s.recv(1024)
-                if data == b'exit':
-                    break
-                print(f"Received {data.decode()}")
+    bar = tqdm(range(FILESIZE), f'Receiving {FILENAME}', unit="B", unit_scale = True, unit_divisor = SIZE)
+    with open(f"recv_{FILENAME}", "wb") as f:
+        while True:
+            data = conn.recv(SIZE)
+            if not data:
+                break
+            f.write(data)
+            bar.update(len(data))
+    conn.close()
 
-            os.waitpid(pid, 0)
-            pgid = os.getpgid(0)
-            os.killpg(pgid, signal.SIGTERM)
-finally:
-    s.close()
+if __name__ == "__main__":
+    main()
